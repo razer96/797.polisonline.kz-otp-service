@@ -1,0 +1,100 @@
+basePath: /
+definitions:
+  handlers.GetOtpRespObj:
+    properties:
+      key:
+        type: string
+    type: object
+  handlers.ValidateOtpReqBody:
+    properties:
+      key:
+        type: string
+      otp:
+        type: string
+      phone:
+        type: string
+    type: object
+  helpers.ErrorResponse:
+    properties:
+      message:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Insurance OTP service is used for sending and varifying OTPs
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  title: Insurance OTP service
+  version: "1.0"
+paths:
+  /otp:
+    get:
+      consumes:
+      - application/json
+      description: Send a OTP to client by sms
+      operationId: get-otp-to-phon-number
+      parameters:
+      - description: Phone number to send OTP
+        in: path
+        name: phone
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.GetOtpRespObj'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+      summary: Send a OTP
+      tags:
+      - otp
+    post:
+      consumes:
+      - application/json
+      description: Send a OTP to client by sms
+      operationId: post-otp-to-phon-number
+      parameters:
+      - description: Body should contain phone number, key, and otp
+        in: body
+        name: validate_otp_req_body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ValidateOtpReqBody'
+      produces:
+      - application/json
+      responses:
+        "204": {}
+        "400":
+          description: This status is returned if wrong otp has been sent
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+        "403":
+          description: This status is returned if key status is no more valid
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+        "404":
+          description: This status is returned if otp sent in more than 60 sec
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+        "410":
+          description: This status is returned if otp reached 3 attemps of validation
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/helpers.ErrorResponse'
+      summary: Send a OTP
+      tags:
+      - otp
+swagger: "2.0"

@@ -1,0 +1,98 @@
+stages:
+  - build
+  - review
+  - promote
+  
+build:
+  stage: build
+  image: $REGISTRY/docker:latest
+  script:
+  - 'docker build -t $IMAGE-$CI_COMMIT_SHA --build-arg http_proxy=$http_proxy --build-arg https_proxy=$http_proxy  --build-arg no_proxy=consul .'
+  - docker push $IMAGE-$CI_COMMIT_SHA
+  tags:
+  - linux
+  
+publish-test:
+  stage: review
+  image: $REGISTRY/nomad:master
+  script:
+  # Set connection
+  - "export NOMAD_ADDR=$NOMAD_ADDR_TEST"
+  - "export NOMAD_TOKEN=$NOMAD_TOKEN_TEST"
+  # Set {{ image }}
+  # Render deployment
+  - render -deployment test.deployment.yaml -namespace $CI_PROJECT_NAMESPACE -name $CI_PROJECT_NAME -image $IMAGE-$CI_COMMIT_SHA > job.nomad
+  # Create plan
+  - (nomad plan job.nomad || eval $SET_NOMAD_RESULT)
+  # Execute plan
+  - nomad run job.nomad
+  only:
+  - branches
+  environment:
+    name: review
+    on_stop: stop-test
+  tags:
+  - linux
+  
+stop-test:
+  stage: review
+  image: $REGISTRY/nomad:master
+  variables:
+    GIT_STRATEGY: none
+  script:
+  # Set connection
+  - "export NOMAD_ADDR=$NOMAD_ADDR_TEST"
+  - "export NOMAD_TOKEN=$NOMAD_TOKEN_TEST"
+  # Stop job
+  - "nomad stop $CI_PROJECT_PATH_SLUG"
+  when: manual
+  environment:
+    name: review
+    action: stop
+  tags:
+  - linux
+  only:
+  - branches
+
+promote:
+  stage: promote
+  image: $REGISTRY/nomad:master
+  script:
+  # Set connection
+  - "export NOMAD_ADDR=$NOMAD_ADDR_PROD"
+  - "export NOMAD_TOKEN=$NOMAD_TOKEN_PROD"
+  # Set {{ image }}
+  # Render deployment
+  - render -deployment prod.deployment.yaml -namespace $CI_PROJECT_NAMESPACE -name $CI_PROJECT_NAME -image $IMAGE-$CI_COMMIT_SHA > job.nomad
+  # Create plan
+  - (nomad plan job.nomad || eval $SET_NOMAD_RESULT)
+  # Execute plan
+  - nomad run job.nomad
+  only:
+  - master
+  when: manual
+  environment:
+    name: review
+    on_stop: stop-test
+  tags:
+  - linux
+
+stop-promote:
+  stage: promote
+  image: $REGISTRY/nomad:master
+  variables:
+    GIT_STRATEGY: none
+  script:
+  # Set connection
+  - "export NOMAD_ADDR=$NOMAD_ADDR_PROD"
+  - "export NOMAD_TOKEN=$NOMAD_TOKEN_PROD"
+  # Stop job
+  - "nomad stop $CI_PROJECT_PATH_SLUG"
+  when: manual
+  environment:
+    name: review
+    action: stop
+  tags:
+  - linux
+  only:
+  - branches
